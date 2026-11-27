@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Indian Poker</title>
+<style>
+:root{--bg:#101d35;--panel:#192945;--cream:#f7f0dc;--ink:#152744;--gold:#d7b66b;--muted:#b9c5d8}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(circle at top,#243958,#0c172b 70%);color:#f7f0dc;font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif;min-height:100vh;padding:20px}
+main{max-width:760px;margin:auto}
+header{text-align:center;margin:8px 0 20px}
+h1{letter-spacing:3px;margin:0;font-size:clamp(25px,5vw,36px)}
+.sub{color:var(--muted);margin-top:6px;font-size:14px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}
+.stat,.board,.controls,.history{background:#192945;border:1px solid #344765;border-radius:16px;padding:14px}
+.stat{text-align:center}.stat small{display:block;color:var(--muted);font-size:12px}.stat strong{font-size:clamp(17px,4vw,24px)}
+.round{text-align:center;color:var(--gold);font-weight:700;letter-spacing:2px;margin:14px}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.person{text-align:center}.person h3{font-size:13px;letter-spacing:1px;color:var(--muted);margin:4px 0 10px}
+.card{width:min(100%,210px);aspect-ratio:5/7;margin:auto;background:var(--cream);color:var(--ink);border-radius:14px;border:5px solid #fff9e9;box-shadow:0 8px 22px #0005;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative}
+.card:before{content:"";position:absolute;inset:7px;border:1.5px solid #243858;border-radius:8px}
+.card .rank{position:absolute;top:12px;left:17px;font-family:Georgia,serif;font-weight:bold;font-size:27px;line-height:1}
+.card .suit{font-size:clamp(65px,13vw,100px);z-index:1}
+.card .corner{position:absolute;bottom:12px;right:17px;transform:rotate(180deg);font-family:Georgia,serif;font-weight:bold;font-size:27px;line-height:1}
+.card.hidden{background:#152744;color:#f7f0dc;border-color:#e9dfc6}
+.card.hidden:before{border-color:#d7b66b}
+.card.hidden .backmark{font-size:56px;color:#d7b66b;z-index:1}
+.message{margin:16px 0 8px;text-align:center;min-height:50px;padding:13px;background:#263b5b;border-radius:12px;color:#fff}
+.thinking{color:#f3d58e}.dots:after{content:"";animation:dots 1.2s steps(4,end) infinite}
+@keyframes dots{0%{content:""}25%{content:"."}50%{content:".."}75%,100%{content:"..."}}
+.betline{text-align:center;color:var(--muted);font-size:14px;margin:10px}
+.controls{margin-top:14px}
+.controls h2{font-size:17px;margin:0 0 12px}
+.raisebox{display:flex;align-items:center;gap:10px;margin-bottom:12px;color:var(--muted);font-size:14px}
+input{width:100px;background:#0f1b30;color:white;border:1px solid #536784;border-radius:8px;padding:9px;font-size:16px}
+.buttons{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+button{border:0;border-radius:10px;padding:13px 8px;font-size:15px;font-weight:700;background:#e4c77f;color:#192945;cursor:pointer}
+button.secondary{background:#d9e0eb;color:#192945}
+button.danger{background:#c87575;color:#fff}
+button:disabled{opacity:.35;cursor:not-allowed}
+.note{text-align:center;color:var(--muted);font-size:12px;margin-top:12px}
+.history{margin-top:14px}.history summary{cursor:pointer;color:var(--gold);font-weight:700}
+.history ol{padding-left:22px;color:var(--muted);font-size:13px}
+.start{display:block;width:100%;margin:14px auto 0;font-size:17px;padding:15px}
+@media(max-width:480px){body{padding:12px}.stats{gap:6px}.stat{padding:10px 4px}.card{border-width:4px}.card .rank{font-size:23px;top:12px;left:14px}.card .corner{font-size:23px;bottom:12px;right:14px}.buttons{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<main>
+<header><h1>♠ INDIAN POKER ♠</h1><div class="sub">상대의 카드만 보고 승부를 결정하세요</div></header>
+<section class="stats">
+ <div class="stat"><small>내 보유 금액</small><strong id="playerMoney">500원</strong></div>
+ <div class="stat"><small>현재 판돈</small><strong id="pot">0원</strong></div>
+ <div class="stat"><small>컴퓨터 금액</small><strong id="computerMoney">500원</strong></div>
+</section>
+<div class="round" id="round">ROUND 0</div>
+<section class="board">
+ <div class="cards">
+  <div class="person"><h3>COMPUTER</h3><div class="card" id="computerCard"><span class="rank">?</span><span class="suit">♠</span><span class="corner">?</span></div></div>
+  <div class="person"><h3>PLAYER</h3><div class="card hidden" id="playerCard"><span class="backmark">♠</span></div></div>
+ </div>
+ <div class="message" id="message">게임을 시작하세요!</div>
+ <div class="betline" id="bets">내 베팅: 0원　|　컴퓨터 베팅: 0원</div>
+ <button class="start" id="startBtn">🎮 게임 시작</button>
+</section>
+<section class="controls" id="controls" hidden>
+ <h2>베팅 선택</h2>
+ <div class="raisebox">레이즈 추가 금액 <input id="raiseAmount" type="number" min="1" step="10" value="10"></div>
+ <div class="buttons">
+  <button id="call">📞 콜</button><button id="raise">⬆️ 레이즈</button><button id="double">✖️ 더블</button>
+  <button id="allin">🔥 올인</button><button class="danger" id="fold">🏳️ 다이</button><button class="secondary" id="check">⏭️ 체크</button>
+ </div>
+ <div class="note">상대방이 베팅한 금액이 있다면 먼저 대응해야 합니다.</div>
+</section>
+<section class="history"><details><summary>📊 게임 전적 및 라운드 기록</summary>
+ <p id="record">내 승리 0회 · 컴퓨터 승리 0회 · 무승부 0회</p><ol id="history"></ol>
+</details></section>
+</main>
+<script>
+const START=500, ANTE=10;
+let pMoney=START,cMoney=START,round=0,pWins=0,cWins=0,draws=0;
+let pCard=null,cCard=null,pBet=0,cBet=0,pot=0,active=false,over=false,history=[];
+const $=id=>document.getElementById(id);
+const won=n=>`${n.toLocaleString("ko-KR")}원`;
+function render(){
+ $('playerMoney').textContent=won(pMoney);$('computerMoney').textContent=won(cMoney);$('pot').textContent=won(pot);
+ $('round').textContent=`ROUND ${round}`;$('bets').textContent=`내 베팅: ${won(pBet)}　|　컴퓨터 베팅: ${won(cBet)}`;
+ $('controls').hidden=!active;$('startBtn').hidden=active||over;
+ $('startBtn').textContent=round===0?'🎮 게임 시작':'다음 라운드';
+ $('record').textContent=`내 승리 ${pWins}회 · 컴퓨터 승리 ${cWins}회 · 무승부 ${draws}회`;
+ $('history').innerHTML=history.map(x=>`<li>${x}</li>`).join('');
+ if(cCard!==null){$('computerCard').innerHTML=`<span class="rank">${name(cCard)}</span><span class="suit">♠</span><span class="corner">${name(cCard)}</span>`;}
+ else $('computerCard').innerHTML='<span class="rank">?</span><span class="suit">♠</span><span class="corner">?</span>';
+ if(!active&&pCard!==null){$('playerCard').className='card';$('playerCard').innerHTML=`<span class="rank">${name(pCard)}</span><span class="suit">♠</span><span class="corner">${name(pCard)}</span>`;}
+ else {$('playerCard').className='card hidden';$('playerCard').innerHTML='<span class="backmark">♠</span>';}
+ $('call').disabled=!active;$('raise').disabled=!active;$('double').disabled=!active;$('allin').disabled=!active;$('fold').disabled=!active;
+ $('check').disabled=!active||pBet!==cBet;
+}
+function name(n){return ({1:'A',11:'J',12:'Q',13:'K'})[n]||n;}
+function message(t,thinking=false){$('message').className='message'+(thinking?' thinking':'');$('message').textContent=t;}
+function startRound(){
+ if(pMoney<ANTE||cMoney<ANTE){over=true;message('코인이 부족하여 게임이 종료되었습니다.');render();return;}
+ round++;pMoney-=ANTE;cMoney-=ANTE;pot=ANTE*2;pBet=0;cBet=0;
+ pCard=1+Math.floor(Math.random()*13);cCard=1+Math.floor(Math.random()*13);active=true;message('상대의 카드를 확인하고 행동을 선택하세요.');render();
+}
+function finish(t){active=false;message(t);history.unshift(`ROUND ${round}: 내 카드 ${name(pCard)}, 상대 카드 ${name(cCard)} — ${t}`);if(pMoney<ANTE||cMoney<ANTE)over=true;render();if(over){$('startBtn').hidden=true;message(t+' 게임이 종료되었습니다. 새로고침하면 다시 시작할 수 있습니다.');}}
+function settle(){
+ if(pBet>cBet){let r=pBet-cBet;pMoney+=r;pot-=r;}else if(cBet>pBet){let r=cBet-pBet;cMoney+=r;pot-=r;}
+ if(pCard>cCard){pMoney+=pot;pWins++;finish(`🎉 플레이어 승리! ${won(pot)} 획득!`);}
+ else if(pCard<cCard){cMoney+=pot;cWins++;finish(`💻 컴퓨터 승리! ${won(pot)} 획득!`);}
+ else{let a=Math.floor(pot/2);pMoney+=a;cMoney+=pot-a;draws++;finish('🤝 무승부! 판돈을 나눴습니다.');}
+}
+function computerFold(){pMoney+=pot;pWins++;finish(`💻 컴퓨터가 다이했습니다! ${won(pot)} 획득!`);}
+function playerFold(){cMoney+=pot;cWins++;finish(`플레이어가 다이했습니다! 컴퓨터가 ${won(pot)} 획득!`);}
+async function computerTurn(){
+ if(!active)return;
+ const delay=1500+Math.random()*1500;
+ message('💻 상대방이 고민하고 있습니다...',true);
+ $('controls').hidden=true;
+ await new Promise(resolve=>setTimeout(resolve,delay));
+ if(!active)return;
+ if(pBet===cBet){
+  if(Math.random()<0.5){message('컴퓨터도 체크했습니다.');settle();}
+  else{let a=Math.min(ANTE,cMoney);cMoney-=a;cBet+=a;pot+=a;message(`컴퓨터가 ${won(a)} 베팅했습니다. 행동을 선택하세요.`);render();}
+  return;
+ }
+ let needed=pBet-cBet;
+ // 컴퓨터는 자신의 카드에 따라 콜 여부를 판단
+ let probability=cCard>=10?0.85:cCard>=6?0.60:0.30;
+ if(Math.random()>probability){computerFold();return;}
+ let a=Math.min(needed,cMoney);cMoney-=a;cBet+=a;pot+=a;
+ if(cBet<pBet){ // 컴퓨터가 올인으로도 금액을 맞추지 못한 경우
+   message(`컴퓨터가 남은 ${won(a)}원을 베팅했습니다.`);
+ }else message(`컴퓨터가 ${won(a)} 콜했습니다.`);
+ settle();
+}
+async function playerAction(action){
+ if(!active)return;
+ let amount=0,extra=Number($('raiseAmount').value)||0;
+ if(action==='check'){if(pBet!==cBet)return;message('플레이어가 체크했습니다.');await computerTurn();return;}
+ if(action==='fold'){playerFold();return;}
+ if(action==='call')amount=pBet===cBet?ANTE:cBet-pBet;
+ if(action==='raise'){if(extra<=0){message('레이즈 추가 금액은 1원 이상이어야 합니다.');return;}amount=Math.max(ANTE,cBet)+extra-pBet;}
+ if(action==='double')amount=Math.max(ANTE,cBet)*2-pBet;
+ if(action==='allin')amount=pMoney;
+ if(amount<=0){message('올바르지 않은 베팅입니다.');return;}
+ if(amount>pMoney){message('보유 금액이 부족합니다. 올인을 이용하세요.');return;}
+ let previousComputerBet=cBet;
+ pMoney-=amount;pBet+=amount;pot+=amount;
+ if(action==='call'&&previousComputerBet>pBet){await computerTurn();return;}
+ message(`${action.toUpperCase()}! ${won(amount)} 베팅했습니다.`);
+ await computerTurn();
+}
+$('startBtn').addEventListener('click',startRound);
+$('call').addEventListener('click',()=>playerAction('call'));
+$('raise').addEventListener('click',()=>playerAction('raise'));
+$('double').addEventListener('click',()=>playerAction('double'));
+$('allin').addEventListener('click',()=>playerAction('allin'));
+$('fold').addEventListener('click',()=>playerAction('fold'));
+$('check').addEventListener('click',()=>playerAction('check'));
+render();
+</script>
+</body>
+</html>
